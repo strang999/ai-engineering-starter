@@ -5,15 +5,17 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timezone
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from support.config import ROOT
 from support.contract import CardResult, Ticket
+from support.data import connect, count_repeats, save_ticket
 from support.rules import make_card_rules
 
 app = FastAPI(title="Демо-маркет · support desk", version="1.0")
@@ -31,7 +33,7 @@ DEMO_SESSION_CUSTOMER = "c-17"
 class CardRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")   # a customer_id in the body is refused, not trusted
     text: str = Field(max_length=4000)
-    ticket_id: str = Field(default="T-WEB", pattern=r"^T-[A-Z0-9]{1,8}$")
+    ticket_id: str | None = Field(default=None, pattern=r"^T-[A-Z0-9]{1,8}$")
 
 
 def _now() -> str:
@@ -45,5 +47,21 @@ def index() -> FileResponse:
 
 @app.post("/api/card", response_model=CardResult)
 def api_card(req: CardRequest) -> CardResult:
-    ticket = Ticket(ticket_id=req.ticket_id, customer_id=DEMO_SESSION_CUSTOMER, text=req.text, created_at=_now())
-    return make_card_rules(ticket)
+    ticket_id = req.ticket_id or "T-" + uuid.uuid4().hex[:6].upper()
+    ticket = Ticket(ticket_id=ticket_id, customer_id=DEMO_SESSION_CUSTOMER, text=req.text, created_at=_now())
+    result = make_card_rules(ticket)
+    if result.status != "empty_input":
+        with connect() as conn:          # lesson 4: history for repeat tickets
+            save_ticket(conn, ticket, result.order_id)
+    return result
+
+
+class RepeatsResponse(BaseModel):
+    order_id: str
+    repeats: int
+
+
+@app.get("/api/repeats", response_model=RepeatsResponse)
+def api_repeats(order_id: str = Query(pattern=r"^DEMO-[0-9]{4}$")) -> RepeatsResponse:
+    with connect() as conn:
+        return RepeatsResponse(order_id=order_id, repeats=count_repeats(conn, order_id, datetime.now(timezone.utc)))

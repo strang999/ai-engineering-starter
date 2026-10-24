@@ -72,7 +72,13 @@
           body: JSON.stringify({ text }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        render(rowsFor(await res.json()));
+        const card = await res.json();
+        const rows = rowsFor(card);
+        if (card.order_id) {
+          const rep = await fetch("/api/repeats?order_id=" + encodeURIComponent(card.order_id));
+          if (rep.ok) rows.push(["Повторних звернень за 30 днів", String((await rep.json()).repeats)]);
+        }
+        render(rows);
       } catch (err) {
         render([["Сервіс недоступний", "Запусти в терміналі: uv run fastapi dev support/server.py\nі відкрий http://127.0.0.1:8000\n(" + err.message + ")"]]);
       }

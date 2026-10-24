@@ -26,6 +26,14 @@ def test_api_card_rejects_customer_id_from_request():
     assert r.status_code == 422
 
 
+def test_card_is_saved_and_repeats_endpoint_answers():
+    r = client.post("/api/card", json={"text": "де DEMO-1044?"})
+    assert r.status_code == 200
+    r = client.get("/api/repeats", params={"order_id": "DEMO-1044"})
+    assert r.json() == {"order_id": "DEMO-1044", "repeats": 0}      # the ticket just sent is < 10 min old
+    assert client.get("/api/repeats", params={"order_id": "1044"}).status_code == 422
+
+
 def test_cors_allows_only_local_dev_origins():
     """A Vite app on localhost:5173 can call the service; any other site cannot."""
     pre = {"Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type"}
