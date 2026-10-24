@@ -3,6 +3,7 @@
     uv run python -m support.evals --baseline
     uv run python -m support.evals --baseline --tag own      # only your cases from evals/own.jsonl
     uv run python -m support.evals add-case "текст" --category доставка
+    uv run python -m support.evals --prompt few                # 3 examples from evals/examples.jsonl (lesson 9)
 """
 
 from __future__ import annotations
@@ -16,7 +17,8 @@ from contextlib import nullcontext
 from pathlib import Path
 
 from support import config
-from support.card import CARD_SYSTEM, build_card_prompt, make_card
+from support.card import CARD_SYSTEM, build_card_prompt, norm
+from support.context import make_card_with_reply
 from support.config import ROOT
 from support.contract import Ticket
 from support.llm import collect_calls
@@ -115,29 +117,54 @@ class CaseResult:
     calls: list[dict] = field(default_factory=list)
 
 
-def run_card_case(case: dict, engine: str, variant: str = "A") -> tuple[dict, list]:
+def run_card_case(case: dict, engine: str, variant: str = "A", prompt: str = "zero",
+                  examples: list[dict] | None = None) -> tuple[dict, list]:
     """-> (CardResult as dict, list of ModelResults made for this case)."""
     if engine == "baseline":
         return make_card_rules(ticket_from(case)).model_dump(), []
     if engine == "model":
+        # lesson 9: the card plus a reply draft; input "orders": "not_loaded" simulates a dead order service
+        orders = None if case["input"].get("orders") == "not_loaded" else "load"
         scenario = case.get("mock")
         # a "mock" case tests OUR code with a simulated failure: run it on mock even in a live run
         force_mock = config.use_model("mock", "mock-1") if scenario else nullcontext()
         with force_mock, use_scenario(scenario), collect_calls() as calls:
-            result = make_card(ticket_from(case), variant=variant)
+            result = make_card_with_reply(ticket_from(case), variant=variant, orders=orders,
+                                          prompt=prompt, examples=examples)
         return result.model_dump(), calls
     raise ValueError(f"unknown engine {engine!r}")
 
 
+def vote(gots: list[dict]) -> dict:
+    """Self-consistency: the category most runs agree on (more than half). No majority -> needs_review,
+    category None, checks["vote"] lists the votes. None («не знаю») is a vote like any other."""
+    cats = [g.get("category") for g in gots]
+    for cat in dict.fromkeys(cats):
+        if cats.count(cat) * 2 > len(cats):
+            return next(g for g in gots if g.get("category") == cat)
+    split = ", ".join("не знаю" if c is None else c for c in cats)
+    return {**gots[0], "status": "needs_review", "category": None,
+            "checks": {**(gots[0].get("checks") or {}), "vote": f"reject: голоси розійшлись ({split})"}}
+
+
 def evaluate(cases: list[dict], *, engine: str, variant: str = "A", runs: int = 1,
-             max_usd: float | None = None) -> list[CaseResult]:
-    """Every case `runs` times. With runs > 1 each run is a separate result (same id).
+             max_usd: float | None = None, prompt: str = "zero", examples: list[dict] | None = None,
+             vote_runs: bool = False) -> list[CaseResult]:
+    """Every case `runs` times. With runs > 1 each run is a separate result (same id); with
+    vote_runs=True the runs of one case become ONE result by majority vote (cost = all runs).
     max_usd: stop before the next case once the money spent reaches it (checked between cases)."""
     results = []
-    for case in [c for c in cases for _ in range(runs)]:
+    plan = [[c] * runs for c in cases] if vote_runs else [[c] for c in cases for _ in range(runs)]
+    technique = {} if prompt == "zero" and examples is None else {"prompt": prompt, "examples": examples}
+    for group in plan:
         if max_usd is not None and sum(r.cost_usd for r in results) >= max_usd:
             break
-        got, calls = run_card_case(case, engine, variant)
+        case, gots, calls = group[0], [], []
+        for _ in group:
+            g, c = run_card_case(case, engine, variant, **technique)
+            gots.append(g)
+            calls += c
+        got = vote(gots) if vote_runs else gots[0]
         expect = case.get("expect", {})
         problems = compare(expect, got, kind=case.get("kind", "card"))
         scored = expect.get("category") is not None      # null = "must not decide": not in coverage
@@ -183,7 +210,8 @@ def summary(results: list[CaseResult]) -> dict:
 
 
 def report(results: list[CaseResult], *, run_id: str, kind: str, provider: str, model: str,
-           split: str, simulated: bool, measured: bool, runs: int = 1) -> list[str]:
+           split: str, simulated: bool, measured: bool, runs: int = 1, variant: str = "A",
+           prompt: str = "zero", vote_runs: bool = False) -> list[str]:
     n = len(results)
     passed = sum(r.passed for r in results)
     scored = [r for r in results if r.scored]
@@ -192,8 +220,9 @@ def report(results: list[CaseResult], *, run_id: str, kind: str, provider: str, 
     cost = sum(r.cost_usd for r in results)
     pct = f"{100 * passed / n:.1f}%" if n else "n/a"
     lines = [
-        f"run {run_id} · kind={kind} · provider={provider} model={model} · cases {n // runs} ({split})"
-        + (f" × {runs} runs" if runs > 1 else ""),
+        f"run {run_id} · kind={kind} · provider={provider} model={model} · cases {n if vote_runs else n // runs} ({split})"
+        + (f" × {runs} runs" if runs > 1 else "") + (" · vote" if vote_runs else "")
+        + (f" · variant {variant}" if variant != "A" else "") + (f" · prompt {prompt}" if prompt != "zero" else ""),
         f"pass {passed}/{n} ({pct}) · "
         + (f"coverage {len(decided)}/{len(scored)} · precision {len(correct)}/{len(decided)}"
            if scored else "coverage n/a · precision n/a"),
@@ -255,13 +284,14 @@ def comparison(rows: list[tuple[str, dict]]) -> list[str]:
     return out
 
 
-def dry_run(cases: list[dict], configs: list[tuple[str, str]], *, runs: int, variant: str = "A") -> list[str]:
+def dry_run(cases: list[dict], configs: list[tuple[str, str]], *, runs: int, variant: str = "A",
+            prompt: str = "zero", examples: list[dict] | None = None) -> list[str]:
     """Count calls and estimate cost from prices.py. Calls nothing."""
     from support import config as cfg
 
-    calls_per_case = 1
-    prompt_tokens = sum(
-        (len(CARD_SYSTEM) + len(build_card_prompt(ticket_from(c), variant)[0]["content"])) // 4 + 1
+    calls_per_case = 2              # lesson 9: card + reply draft (fewer when the card is not ok)
+    prompt_tokens = calls_per_case * sum(
+        (len(CARD_SYSTEM) + len(build_card_prompt(ticket_from(c), variant, prompt, examples)[0]["content"])) // 4 + 1
         for c in cases if c["input"]["text"].strip())
     n_calls = sum(1 for c in cases if c["input"]["text"].strip()) * runs * calls_per_case
     lines = [f"dry run · {len(cases)} cases × {runs} runs × {len(configs)} configs · "
@@ -286,3 +316,20 @@ def dry_run(cases: list[dict], configs: list[tuple[str, str]], *, runs: int, var
         lines.append(f"{provider}:{model} · ~{tin} in / ~{tout} out tokens · {price}")
     lines.append(f"total ≈ ${total:.4f} (output assumed {ASSUMED_OUTPUT_TOKENS} tokens per call) · nothing was called")
     return lines
+
+
+# --- lesson 9: few-shot examples must never be test cases --------------------------
+
+def _same_text_key(text: str) -> str:
+    """norm() plus punctuation dropped: «Дуже дякую, все чудово!» == «дуже дякую все чудово»."""
+    return re.sub(r"[\W_]+", " ", norm(text)).strip() or norm(text)
+
+
+def example_leaks(examples: list[dict], cases: list[dict]) -> list[tuple[str, str]]:
+    """(example id, case id) for every example whose text equals a case input after normalising.
+    An example copied from the eval set makes the eval measure memory, not the prompt."""
+    by_text = {}
+    for c in cases:
+        by_text.setdefault(_same_text_key(c["input"].get("text", "")), c["id"])
+    return [(e.get("id", "?"), by_text[_same_text_key(e["text"])])
+            for e in examples if _same_text_key(e["text"]) in by_text]

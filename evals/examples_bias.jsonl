@@ -1,0 +1,3 @@
+{"id": "b01", "text": "Можна обміняти светр на розмір L? DEMO-1042", "card": {"category": "обмін", "category_evidence": "обміняти", "order_id": {"value": "DEMO-1042", "evidence": "DEMO-1042"}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"id": "b02", "text": "Хочу ці кросівки в іншому кольорі", "card": {"category": "обмін", "category_evidence": "в іншому кольорі", "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"id": "b03", "text": "Поміняйте джинси на 32 розмір, будь ласка", "card": {"category": "обмін", "category_evidence": "Поміняйте", "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}

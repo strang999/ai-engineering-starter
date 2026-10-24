@@ -1,4 +1,4 @@
-"""The Project Contract, version 1.1 (human-readable twin: CONTRACT.md).
+"""The Project Contract, version 1.2 (human-readable twin: CONTRACT.md).
 
 Every lesson uses these names. Change one only as a versioned event:
 bump CONTRACT_VERSION, update every lesson that uses the name, re-run the snippet tests.
@@ -15,9 +15,9 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Annotated, Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-CONTRACT_VERSION = "1.1"
+CONTRACT_VERSION = "1.2"
 
 # --- 2.2 Categories and tags (Ukrainian values, exactly these strings) ------
 
@@ -53,6 +53,31 @@ class TicketCard(BaseModel):  # what the MODEL returns (L08)
     order_id: Fact
     amount: Fact              # money stays a string here, e.g. "1 250,00 грн"
     tags: list[Tag]
+
+
+WHY_MAX = 300                         # chars kept from `why`; longer text is cut, never a schema error
+
+
+class TicketCardReasoned(BaseModel):  # L09 `--prompt reason`: the same card, a short `why` written FIRST
+    model_config = ConfigDict(extra="forbid", strict=True)
+    # One short sentence: why this category. NOT evidence, NOT hidden reasoning: Anthropic lists a
+    # `reasoning` / `thinking` field in JSON as a cause of the billed `reasoning_extraction` refusal and
+    # allows "a short explanation". The limit lives in code: maxLength in the sent schema is a 400 on Claude.
+    why: str | None = None
+    category: Category
+    category_evidence: str | None
+    order_id: Fact
+    amount: Fact
+    tags: list[Tag]
+
+    @field_validator("why")
+    @classmethod
+    def _short_why(cls, v: str | None) -> str | None:
+        return v[:WHY_MAX] if v else v
+
+    def to_card(self) -> TicketCard:
+        """Drop `why`: it never reaches CardResult, the UI or the API (the raw reply stays in runs/)."""
+        return TicketCard.model_validate_json(self.model_dump_json(exclude={"why"}))
 
 
 CardStatus = Literal["ok", "needs_review", "empty_input", "refusal",

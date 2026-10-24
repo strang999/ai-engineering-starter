@@ -19,7 +19,7 @@ def test_demo_prints_first_card_in_mock_mode(capsys):
 
 
 def test_versions():
-    assert CONTRACT_VERSION == "1.1"
+    assert CONTRACT_VERSION == "1.2"
     assert STARTER_TAG.startswith("l")
 
 

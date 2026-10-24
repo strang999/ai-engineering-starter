@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from support.config import ROOT
-from support.card import make_card
+from support.context import make_card_with_reply
 from support.contract import CardResult, Ticket
 from support.data import connect, count_repeats, save_ticket
 from support.rules import make_card_rules
@@ -51,10 +51,10 @@ def index() -> FileResponse:
 
 @app.post("/api/card", response_model=CardResult)
 def api_card(req: CardRequest, engine: Literal["model", "rules"] = "model") -> CardResult:
-    """engine=model (lesson 8): the checked AI card; engine=rules: the lesson 3-5 baseline."""
+    """engine=model: the checked AI card plus a reply draft (lessons 8-9); engine=rules: the lesson 3-5 baseline."""
     ticket_id = req.ticket_id or "T-" + uuid.uuid4().hex[:6].upper()
     ticket = Ticket(ticket_id=ticket_id, customer_id=DEMO_SESSION_CUSTOMER, text=req.text, created_at=_now())
-    result = make_card(ticket) if engine == "model" else make_card_rules(ticket)
+    result = make_card_with_reply(ticket) if engine == "model" else make_card_rules(ticket)
     if result.status != "empty_input":
         with connect() as conn:          # lesson 4: history for repeat tickets
             save_ticket(conn, ticket, result.order_id)

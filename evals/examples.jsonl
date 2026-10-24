@@ -1,0 +1,3 @@
+{"id": "e01", "text": "Курʼєр двічі переносив доставку, коли привезуть DEMO-1044?", "card": {"category": "доставка", "category_evidence": "Курʼєр двічі переносив доставку", "order_id": {"value": "DEMO-1044", "evidence": "DEMO-1044"}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"id": "e02", "text": "Ну і що тепер?", "card": {"category": "невідомо", "category_evidence": null, "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"id": "e03", "text": "Дякую за швидку відповідь, питань більше нема", "card": {"category": "інше", "category_evidence": "Дякую за швидку відповідь", "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}

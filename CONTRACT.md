@@ -1,10 +1,10 @@
-# Контракт проєкту · версія 1.1
+# Контракт проєкту · версія 1.2
 
 Одна сторінка імен, даних і форматів, однакова для всіх уроків курсу «AI Engineering з нуля». Код: `support/contract.py` (типи), `support/llm/__init__.py` (`call_model`).
 
 Зміна контракту це подія з версією: підвищити `CONTRACT_VERSION`, оновити кожен урок, що використовує змінене ім'я, перезапустити snippet-тести (`docs/SNIPPETS.md`).
 
-`CONTRACT_VERSION = "1.1"`. Що змінилось від 1.0: розділ 12.
+`CONTRACT_VERSION = "1.2"`. Що змінилось від 1.0: розділ 12; від 1.1: розділ 13. Теги `l00`–`l08` лишаються на 1.1: версія 1.2 додає тільки урок 9 (тег `l09`).
 
 ## 1. Домен
 
@@ -71,6 +71,16 @@ class TicketCard(BaseModel):  # що повертає МОДЕЛЬ (extra="forbi
     amount: Fact              # сума тут рядок, напр. "1 250,00 грн"
     tags: list[Tag]
 
+class TicketCardReasoned(BaseModel):  # з l09, для --prompt reason (extra="forbid", strict)
+    why: str | None = None            # одне коротке речення ДО відповіді: чому ця категорія; не доказ;
+                                      # код обрізає до WHY_MAX = 300 знаків (maxLength у схемі Claude не приймає)
+    category: Category                # далі ті самі поля, що в TicketCard
+    category_evidence: str | None
+    order_id: Fact
+    amount: Fact
+    tags: list[Tag]
+    def to_card(self) -> TicketCard: ...   # відкидає why
+
 CardStatus = Literal["ok", "needs_review", "empty_input", "refusal",
                      "schema_error", "truncated", "error"]
 
@@ -107,12 +117,13 @@ class CardResult(BaseModel):  # що повертає НАШ КОД інтерф
 | `make_card_rules` | `l03` | `(ticket: Ticket) -> CardResult` |
 | `count_repeats` | `l04` | `(conn, order_id: str, now: datetime) -> int` |
 | `triage_rules` | `l05` | `(text: str) -> Category \| None` |
-| `build_card_prompt` | `l06`, варіант `B` у `l09` | `(ticket: Ticket, variant: str = "A") -> list[dict]`; системна роль окремо: `CARD_SYSTEM` |
-| `make_card` | `l06`, перевірки `l08` | `(ticket: Ticket, *, variant: str = "A") -> CardResult` |
+| `build_card_prompt` | `l06`, варіант `B` і техніка `prompt` у `l09` | `(ticket: Ticket, variant: str = "A", prompt: str = "zero", examples: list[dict] \| None = None) -> list[dict]`; системна роль окремо: `CARD_SYSTEM`. `prompt`: `zero` (як було), `one` / `few` (1 / 3 перші приклади в `<examples>` перед `<ticket>`), `reason` (коротке поле `why` першим) |
+| `make_card` | `l06`, перевірки `l08`, `prompt` у `l09` | `(ticket: Ticket, *, variant: str = "A", prompt: str = "zero", examples: list[dict] \| None = None) -> CardResult`; з `prompt="reason"` просить `TicketCardReasoned` і відкидає `why` до перевірок: у `CardResult`, UI й API його нема, сира відповідь лишається в `runs/` |
+| `load_examples` | `l09` | `(path=None) -> list[dict]`: рядки `evals/examples.jsonl`, кожна `card` валідна як `TicketCard` |
 | `parse_amount_kop` | `l08` | `(raw: str) -> int \| None`: «1 250,00 грн» → 125000; «-1250.00» → -125000 (знак зберігається, сума ≤ 0 відхиляє `make_card`); «півтори тисячі» → None |
 | `check_fact` | `l08` | `(fact: Fact, source: str) -> str` |
 | `update_customer_state` | `l09` | `(state: dict, new_facts: dict, orders: list[dict]) -> dict` |
-| `make_card_with_reply` | `l09` | `(ticket: Ticket, *, variant: str = "A", orders: list[dict] \| None \| "load" = "load") -> CardResult`; `None` = сервіс замовлень не відповів |
+| `make_card_with_reply` | `l09` | `(ticket: Ticket, *, variant: str = "A", orders: list[dict] \| None \| "load" = "load", prompt: str = "zero", examples=None) -> CardResult`; `None` = сервіс замовлень не відповів; `prompt` міняє тільки запит картки |
 | `search_kb` | `l10` | `(question: str, k: int = 3, mode: str = "hybrid") -> list[Chunk]` |
 | `answer_from_kb` | `l10` | `(question: str) -> RagAnswer(found, answer, sources)` |
 
@@ -211,25 +222,34 @@ class ModelResult:
 - Обидва файли в UTF-8. Якщо Windows PowerShell 5.1 дописав рядок через `>>` (UTF-16) або редактор поставив BOM, `run_evals` прочитає файл і попередить. Файл, який не читається, дає зрозуміле повідомлення українською, без traceback.
 - Перенести свої кейси на гілку нового уроку: `git checkout lesson-<NN-1> -- evals/own.jsonl`; злити, нічого не перезаписуючи: `uv run python scripts/carry_own_cases.py lesson-<NN-1>`.
 
+**Приклади для few-shot: `evals/examples.jsonl`** (тег `l09`).
+
+- Рядок: `{"id": "e01", "text": "…", "card": {…}}`, де `card` це рівно та картка `TicketCard`, яку модель має повернути на цей текст. `--prompt one` бере перший рядок, `--prompt few` перші три, у порядку файлу.
+- Приклад ніколи не береш з набору кейсів: тест `tests/test_prompting.py` падає, якщо текст прикладу з будь-якого `evals/examples*.jsonl` після нормалізації (регістр, пробіли, апострофи, розділові знаки) дорівнює входу кейсу з `cases.jsonl`. `run_evals` перед прогоном пише `WARNING`, якщо приклад збігся з кейсом з `cases.jsonl` чи `own.jsonl`.
+- У стартері: `e01` доставка («Курʼєр двічі переносив доставку…»), `e02` невідомо («Ну і що тепер?», цитата `null`), `e03` інше (подяка, не `c011`). `evals/examples_bias.jsonl`: три приклади `обмін` для вправи на упередження.
+
 **Покриття і точність** рахуються тільки на кейсах, де `expect.category` задана й не `null`: покриття = скільки з них отримали категорію (не «не знаю»), точність = скільки з отриманих правильні. `"category": null` в `expect` означає «код не має вирішувати» (напр. категорія без доказу) і в покриття не входить.
 
 ## 10. `run_evals`
 
 ```text
 uv run python -m support.evals [--kind card] [--baseline] [--provider mock] [--model ID]
-    [--effort low] [--variant A] [--runs 1] [--split dev] [--tag edge] [--id c039]
+    [--effort low] [--variant A] [--prompt zero] [--examples FILE] [--reverse-examples]
+    [--runs 1] [--vote] [--split dev] [--tag edge] [--id c039]
     [--dry-run] [--max-usd 0.05] [--label NAME]
 uv run python -m support.evals add-case "текст" [--category C] [--order-id DEMO-1042] [--amount-kop N]
     [--status ok] [--must-contain TEXT] [--tag T] [--customer c-17] [--mock SCENARIO]
 ```
 
-Прапорці з'являються разом з уроками: `--baseline`, `--tag`, `--split`, `--label`, `--id` і `add-case` у `l03`; `--provider`, `--model`, `--effort`, `--runs`, `--dry-run`, `--max-usd` у `l07`; `--variant` у `l09`.
+Прапорці з'являються разом з уроками: `--baseline`, `--tag`, `--split`, `--label`, `--id` і `add-case` у `l03`; `--provider`, `--model`, `--effort`, `--runs`, `--dry-run`, `--max-usd` у `l07`; `--variant`, `--prompt`, `--examples`, `--reverse-examples`, `--vote` у `l09`.
 
 - `--tag own` бере тільки свої кейси з `evals/own.jsonl`. `--id` можна повторити: `--id c039 --id c041` проганяє тільки ці кейси.
 
 - `--baseline`: правила (`make_card_rules`, `triage_rules`) замість моделі. Час правил не міряється.
+- `--prompt zero|one|few|reason` (тег `l09`): техніка промпта, окремо від `--variant` (варіант = як розкладені частини, техніка = що додано). `zero` за замовчуванням, вивід як до 1.2. `one` / `few`: 1 / 3 перші приклади з `--examples FILE` (за замовчуванням `evals/examples.jsonl`); `--reverse-examples` ставить ті самі приклади у зворотному порядку. `reason`: коротке пояснення `why` перед відповіддю (`TicketCardReasoned`). Заголовок звіту: `· prompt few (e01, e02, e03)`; у mock після FAIL-рядків стоїть `note: on mock the prompt effect is a fixed teaching rule (CONTRACT.md 11.14); a live run measures the real one`. Мітка `runs/` отримує `-few`, `-<файл прикладів>` (якщо `--examples`), `-rev`, `-vote`.
+- `--runs N --vote` (тег `l09`): N прогонів кожного кейсу стають одним результатом за більшістю категорії (більше половини голосів). Нема більшості: `status="needs_review"`, `category=None`, `checks["vote"] = "reject: голоси розійшлись (…)"`. Ціна й час = сума N прогонів, `--dry-run` уже множить на N. Заголовок: `× 3 runs · vote`. Mock детермінований, тож у mock голоси завжди сходяться; різницю дає живий прогін.
 - `--model` можна повторити (`--model mock:mock-1 --model anthropic:claude-haiku-5-5`), тоді в кінці таблиця порівняння (тег `l07`).
-- `--dry-run`: кількість викликів і оцінка ціни з `prices.py` до будь-яких витрат (тег `l07`). Ціна рахується на один виклик і множиться на кількість викликів; з `l09` враховує `--variant`.
+- `--dry-run`: кількість викликів і оцінка ціни з `prices.py` до будь-яких витрат (тег `l07`). Ціна рахується на один виклик і множиться на кількість викликів; з `l09` враховує `--variant` і `--prompt` (приклади додають вхідні токени).
 - `--max-usd 0.05`: стоп бюджету. Перед кожним наступним кейсом прогін перевіряє, скільки вже витрачено, і зупиняється, коли досяг ліміту (може перебрати на один кейс). Звіт рахує тільки виконані кейси й пише `budget stop: $X of $Y spent · N of M cases not run` (тег `l07`).
 - Пише `runs/<YYYYMMDD-HHMMSS>-<label>.json` з кожним результатом. Мітка: `baseline` для `--baseline` (або `--label NAME`); для моделі `[NAME-]<provider>-<model>-<effort>`, з `l09` плюс `-B`, якщо варіант не `A`. Два прогони за одну хвилину й кілька `--model` з одним `--label` більше не пишуть в один файл.
 - `--min-pass` (поріг і код виходу 1 для CI) з'являється в тезі `l11`.
@@ -246,7 +266,7 @@ FAIL c007 [edge] category: expected невідомо, got інше
 
 Модельний прогін додає після `latency` рядок `tokens in N · out M · cached K` і, якщо були збої провайдера, `errors N/M (first: ...)`; якщо ціни моделі нема в `prices.py`, рядок `price unknown for <model>: cost shown as $0, add it to support/prices.py`. `--baseline` пише `cost $0.0000 (rules)` і `latency n/a (rules, not measured)`. Утримання правил у рядку FAIL показується як `got не знаю`. Перший тег кейсу стоїть у дужках.
 
-## 11. Рішення, які варто знати (версії 1.0 і 1.1)
+## 11. Рішення, які варто знати (версії 1.0–1.2)
 
 1. Тег `lNN` це стан **у кінці** уроку NN (еталон). `git diff l07 l08` показує рівно те, що додає урок 8. Учень працює в одній гілці на урок, `lesson-NN`. Урок 0 стартує з `l00`; уроки 1–4, де учень будує сам, з `l(NN-1)`; з уроку 5 урок стартує з власного тегу `lNN` (учень читає, запускає, ламає й розширює готовий код). Свої кейси переносить `git checkout lesson-<NN-1> -- evals/own.jsonl` (розділ 9).
 2. `CardResult.category` додано до контракту: таблиця версій каже «+ category від правил», а поля в схемі не було.
@@ -261,6 +281,13 @@ FAIL c007 [edge] category: expected невідомо, got інше
 11. `customer_id` у `POST /api/card` не приймається (422): сервер бере його з сесії (`DEMO_SESSION_CUSTOMER = "c-17"`).
 12. `make_card_with_reply` (тег `l09`) перевіряє власника замовлення. Якщо сервіс замовлень відповів, а номера нема серед замовлень цього клієнта: `checks["order_id"] = "reject: не замовлення цього клієнта"`, `order_id=None`, статус `needs_review`. Чуже й неіснуюче виглядають однаково. Чернетка каже «Не бачу замовлення … серед ваших», бо в запит іде тільки цей клієнт. Якщо сервіс не відповів (`orders=None`), власника не перевірити: номер лишається, чернетка каже, що дані не завантажились. Сам `make_card` замовлень не читає й власника не перевіряє. Змішування фактів різних звернень у стані клієнта (сума від одного замовлення при іншому номері) лишається навмисною вправою уроку 9 і виправляється в `l10`.
 13. Сервіс (`support/server.py`, тег `l03`) дозволяє CORS тільки для локальних dev-адрес `http://localhost:<порт>` і `http://127.0.0.1:<порт>` (Vite на 5173 тощо), методи GET і POST, без cookies. Іншим джерелам браузер відмовить.
+
+14. **Mock реагує на промпт картки** (тег `l09`, `support/llm/mock.py`). Це навчальна імітація типової поведінки, не модель: справжній ефект міряє живий прогін. Правила чіпають тільки «неоднозначну» відповідь mock, тобто категорію `інше` або `невідомо`; ясну відповідь (`брак` з цитатою «розбитий») приклади не міняють.
+    1. **Збіг з прикладом.** Приклад «схожий» на звернення, якщо слово з його `category_evidence` і слово звернення мають однаковий початок (перші 5 літер слова з 4+ літер, апострофи зведені). Приклад з `category_evidence: null` схожий на звернення, для якого mock теж не має цитати. Категорія стає категорією прикладу, цитата = слово звернення (або `null`). Якщо схожих прикладів кілька, перемагає **останній** у запиті: порядок прикладів має значення.
+    2. **Упередження.** Жоден приклад не схожий, а три останні приклади мають одну категорію: відповідь тягнеться до неї, цитата = перше слово звернення. Цитата справжня, тому перевірка доказу її пропускає, а категорія хибна.
+    3. **Поле `why`.** Якщо схема має `why` (`TicketCardReasoned`), mock пише його першим і для ще неоднозначної відповіді перечитує таблицю категорій (розділ 2, колонка «Коли»): слово звернення з неї (кур'єр, посилка, розмір, колір, пароль…) дає категорію.
+
+    Що це дає на 43 кейсах (варіант `A`, mock): `zero` 39/43 (провали c011, c021, c025, c039), `one` 40/43 (`e01` «Курʼєр…» лагодить c021), `few` 42/43 (`e03` подяка лагодить c011, `e02` «невідомо» лагодить c025), `reason` 40/43 (кур'єр = доставка лагодить c021). Ті самі три приклади у зворотному порядку: 41/43, c011 знову `невідомо` (останнім схожим став `e02`). `evals/examples_bias.jsonl` (три `обмін`): 37/43, c011, c019, c021, c025, c026 стають `обмін`. c039 падає тільки у варіанті `A` (розділ 11.10).
 
 ## 12. Зміни у версії 1.1 (24.10.2026)
 
@@ -298,3 +325,19 @@ FAIL c007 [edge] category: expected невідомо, got інше
 | `l07` | `.env.example`: `AIEZ_EFFORT=low` |
 | `l09` | `make_card_with_reply`: перевірка власника замовлення (розділ 11.12); кейс `c041` чекає `needs_review` і `order_id: null` |
 | `l09` | `--dry-run` враховує `--variant` |
+
+## 13. Зміни у версії 1.2 (24.10.2026)
+
+Усе в тезі `l09`, бо техніки промптів учить урок 9; теги `l00`–`l08` не змінились і лишаються на 1.1. Вивід без нових прапорців той самий, що в 1.1.
+
+| Тег | Зміна |
+|---|---|
+| `l09` | `run_evals --prompt zero\|one\|few\|reason`, окремо від `--variant`; `zero` за замовчуванням = запит 1.1 без змін (розділ 10) |
+| `l09` | `build_card_prompt`, `make_card`, `make_card_with_reply` приймають `prompt=` і `examples=`; приклади йдуть блоком `<examples>` прямо перед `<ticket>` |
+| `l09` | `evals/examples.jsonl` (3 підписані демо-звернення `e01`–`e03`) і `evals/examples_bias.jsonl` (3 × `обмін`); `load_examples`; `--examples FILE`, `--reverse-examples` |
+| `l09` | Тест: жоден приклад не дорівнює входу кейсу після нормалізації; `run_evals` попереджає про такий приклад і для `own.jsonl` |
+| `l09` | `TicketCardReasoned`: необов'язкове коротке `why` першим полем (до 300 знаків, код обрізає); `make_card` відкидає його до перевірок, у `CardResult`, UI й API його нема |
+| `l09` | Mock реагує на приклади й поле `why` за трьома правилами (розділ 11.14); звіт у mock з `--prompt` пише рядок `note: …` |
+| `l09` | `--runs N --vote`: більшість категорії, без більшості `needs_review` (розділ 10) |
+| `l09` | `CONTRACT_VERSION = "1.2"` |
+| `l09` | Поле `reasoning` перейменоване на `why` (24.10.2026): документація Anthropic про відмови називає поле `reasoning` у JSON типовою причиною оплачуваної відмови `reasoning_extraction` і дозволяє коротке пояснення (https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback#keep-reasoning-in-thinking-blocks). Версія лишається 1.2 |
