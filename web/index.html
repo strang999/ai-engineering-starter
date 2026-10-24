@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Демо-маркет · картка звернення</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; color: #1d1d1f; }
+    textarea { width: 100%; min-height: 6rem; font: inherit; padding: .5rem; box-sizing: border-box; }
+    button { margin-top: .5rem; padding: .5rem 1rem; font: inherit; cursor: pointer; }
+    .card { margin-top: 1rem; border: 1px solid #ccc; border-radius: 8px; padding: 1rem; }
+    .card dt { font-weight: 600; margin-top: .5rem; }
+    .card dd { margin: 0; }
+    .muted { color: #666; }
+  </style>
+</head>
+<body>
+  <h1>Картка звернення</h1>
+  <p class="muted">Прототип уроку 1: усе працює в браузері, без бібліотек, без ключів і без моделі.</p>
+
+  <label for="ticket">Текст звернення клієнта</label>
+  <textarea id="ticket">Не отримав посилку, замовлення DEMO-1042</textarea>
+  <button id="make">Зробити картку</button>
+
+  <div id="out" class="card" hidden></div>
+
+  <script>
+    // Same rule as support/rules.py in lesson 3: "demo", spaces/dash, exactly 4 digits -> DEMO-1042.
+    // (?!\d): "DEMO-10420" is not an order number, so the card says «Номер не надано».
+    const ORDER_RE = /demo[\s\-_]*(\d{4})(?!\d)/i;
+
+    function makeCard(text) {
+      if (!text.trim()) {
+        return { status: "empty_input", text: text, order: null, missing: [] };
+      }
+      const m = text.match(ORDER_RE);
+      const order = m ? "DEMO-" + m[1] : null;
+      return { status: "ok", text: text, order: order, missing: order ? [] : ["номер замовлення"] };
+    }
+
+    function render(card) {
+      const out = document.getElementById("out");
+      out.hidden = false;
+      out.replaceChildren();
+      if (card.status === "empty_input") {
+        out.textContent = "Порожнє звернення: картку не створено.";
+        return;
+      }
+      const dl = document.createElement("dl");
+      const rows = [
+        ["Звернення", card.text],
+        ["Номер замовлення", card.order || "Номер не надано"],
+        ["Чого бракує", card.missing.length ? card.missing.join(", ") : "нічого"],
+      ];
+      for (const [k, v] of rows) {
+        const dt = document.createElement("dt"); dt.textContent = k;
+        const dd = document.createElement("dd"); dd.textContent = v;
+        dl.append(dt, dd);
+      }
+      out.append(dl);
+    }
+
+    document.getElementById("make").addEventListener("click", () => {
+      render(makeCard(document.getElementById("ticket").value));
+    });
+  </script>
+</body>
+</html>
