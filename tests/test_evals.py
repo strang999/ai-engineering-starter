@@ -75,10 +75,11 @@ def test_runs_repeat_every_case():
 
 def test_dry_run_calls_nothing(tmp_path, monkeypatch):
     monkeypatch.setenv("AIEZ_RUNS_DIR", str(tmp_path))
+    cases = select(load_cases())
     with collect_calls() as calls:
-        lines = dry_run(select(load_cases()), [("mock", "mock-1"), ("anthropic", "claude-haiku-5-5")], runs=2)
+        lines = dry_run(cases, [("mock", "mock-1"), ("anthropic", "claude-haiku-5-5")], runs=2)
     assert calls == [] and not list(tmp_path.iterdir())
-    assert lines[0].startswith("dry run · 30 cases × 2 runs × 2 configs")
+    assert lines[0].startswith(f"dry run · {len(cases)} cases × 2 runs × 2 configs")
     assert any("claude-haiku-5-5" in ln and "≈ $" in ln for ln in lines)
 
 

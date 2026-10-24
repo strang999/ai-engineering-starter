@@ -74,3 +74,31 @@ def make_card_rules(ticket: Ticket) -> CardResult:
         category=triage_rules(ticket.text),
         missing=[] if order_id else ["order_id"],
     )
+
+
+# --- lesson 8: money from text to kopiyky (int). float for money: never. ---------
+
+_CURRENCY = re.compile(r"\s*(грн\.?|гривень|гривні|гривня|uah|₴)\s*$", re.I)
+_SPACES = re.compile(r"[\s\u00a0\u202f']")
+
+
+def parse_amount_kop(raw: str) -> int | None:
+    """'1 250,00 грн' -> 125000, '540 грн' -> 54000, '-1250.00' -> -125000, 'півтори тисячі' -> None.
+
+    The sign is kept: whether a negative or zero amount is acceptable is the caller's rule."""
+    if not isinstance(raw, str):
+        return None
+    text = _CURRENCY.sub("", unicodedata.normalize("NFKC", raw).strip())
+    sign = -1 if text.startswith("-") else 1
+    text = _SPACES.sub("", text.lstrip("+-"))
+    if not re.fullmatch(r"[\d.,]+", text or "x"):
+        return None
+    if "," in text and "." in text:                # the last separator is the decimal one
+        dec = "," if text.rfind(",") > text.rfind(".") else "."
+        text = text.replace("." if dec == "," else ",", "").replace(dec, ".")
+    elif "," in text:
+        text = text.replace(",", ".")
+    whole, _, frac = text.partition(".")
+    if not whole.isdigit() or "." in frac or len(frac) > 2 or (frac and not frac.isdigit()):
+        return None                                # '12.345' is ambiguous: refuse, don't guess
+    return sign * (int(whole) * 100 + int(frac.ljust(2, "0") or 0))

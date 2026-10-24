@@ -1,12 +1,15 @@
 """Local web service: the lesson 1 page, now backed by Python.
 
     uv run fastapi dev support/server.py      # http://127.0.0.1:8000, API docs at /docs
+
+The model key, if any, lives only here (in .env on the server), never in web/.
 """
 
 from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +17,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from support.config import ROOT
+from support.card import make_card
 from support.contract import CardResult, Ticket
 from support.data import connect, count_repeats, save_ticket
 from support.rules import make_card_rules
@@ -46,10 +50,11 @@ def index() -> FileResponse:
 
 
 @app.post("/api/card", response_model=CardResult)
-def api_card(req: CardRequest) -> CardResult:
+def api_card(req: CardRequest, engine: Literal["model", "rules"] = "model") -> CardResult:
+    """engine=model (lesson 8): the checked AI card; engine=rules: the lesson 3-5 baseline."""
     ticket_id = req.ticket_id or "T-" + uuid.uuid4().hex[:6].upper()
     ticket = Ticket(ticket_id=ticket_id, customer_id=DEMO_SESSION_CUSTOMER, text=req.text, created_at=_now())
-    result = make_card_rules(ticket)
+    result = make_card(ticket) if engine == "model" else make_card_rules(ticket)
     if result.status != "empty_input":
         with connect() as conn:          # lesson 4: history for repeat tickets
             save_ticket(conn, ticket, result.order_id)

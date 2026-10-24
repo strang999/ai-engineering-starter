@@ -35,7 +35,7 @@ def test_seed_set_shape():
     assert sum("edge" in c["tags"] for c in cases) >= 5
     assert {c["input"]["customer_id"] for c in cases} <= {"c-17", "c-23", "c-99"}
     for c in cases:
-        assert "category" not in c["expect"] or c["expect"]["category"] in CATEGORIES
+        assert c["expect"].get("category") is None or c["expect"]["category"] in CATEGORIES
 
 
 def numbers(results):

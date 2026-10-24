@@ -28,3 +28,4 @@
 {"ticket_id": "T-0028", "card": {"category": "доставка", "category_evidence": "посилка", "order_id": {"value": "DEMO-1042", "evidence": "DEMO 1042"}, "amount": {"value": null, "evidence": null}, "tags": []}}
 {"ticket_id": "T-0029", "card": {"category": "доставка", "category_evidence": "доставка", "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
 {"ticket_id": "T-0030", "card": {"category": "обмін", "category_evidence": "Обміняйте", "order_id": {"value": "DEMO-1043", "evidence": "DEMO-1043"}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0038", "card": {"category": "повернення", "category_evidence": "Поверніть", "order_id": {"value": "DEMO-1043", "evidence": "DEMO-1043"}, "amount": {"value": "півтори тисячі", "evidence": "півтори тисячі"}, "tags": []}}

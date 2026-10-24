@@ -140,7 +140,7 @@ def evaluate(cases: list[dict], *, engine: str, variant: str = "A", runs: int = 
         got, calls = run_card_case(case, engine, variant)
         expect = case.get("expect", {})
         problems = compare(expect, got, kind=case.get("kind", "card"))
-        scored = "category" in expect
+        scored = expect.get("category") is not None      # null = "must not decide": not in coverage
         decided = got.get("category") is not None
         results.append(CaseResult(
             id=case["id"], tags=case.get("tags", []), passed=not problems, problems=problems, got=got,

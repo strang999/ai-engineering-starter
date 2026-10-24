@@ -20,6 +20,8 @@
 
   <label for="ticket">Текст звернення клієнта</label>
   <textarea id="ticket">Не отримав посилку, замовлення DEMO-1042</textarea>
+  <label><input type="radio" name="engine" value="model" checked> модель + перевірка доказів (урок 8)</label>
+  <label><input type="radio" name="engine" value="rules"> тільки правила (уроки 3–5)</label><br>
   <button id="make">Зробити картку</button>
 
   <div id="out" class="card" hidden></div>
@@ -66,7 +68,8 @@
     document.getElementById("make").addEventListener("click", async () => {
       const text = document.getElementById("ticket").value;
       try {
-        const res = await fetch("/api/card", {
+        const engine = document.querySelector('input[name="engine"]:checked').value;
+        const res = await fetch("/api/card?engine=" + engine, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text }),
