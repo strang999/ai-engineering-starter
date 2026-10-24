@@ -87,7 +87,8 @@ def compare(expect: dict, got: dict, *, kind: str = "card") -> list[str]:
             if got.get(name) not in want:
                 problems.append(f"{name}: expected one of {_fmt(want)}, got {_fmt(got.get(name))}")
         elif got.get(key) != want:
-            problems.append(f"{key}: expected {_fmt(want)}, got {_fmt(got.get(key))}")
+            shown = "не знаю" if key == "category" and got.get(key) is None else _fmt(got.get(key))
+            problems.append(f"{key}: expected {_fmt(want)}, got {shown}")
     return problems
 
 

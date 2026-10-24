@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
-from support.contract import CardResult, Ticket
+from support.contract import CardResult, Category, Ticket
 
 # Cyrillic letters that look like Latin ones in "DEMO" (lesson 4, «чекліст країв»: «dеmо-1042»)
 _LOOKALIKES = str.maketrans({"е": "e", "Е": "E", "о": "o", "О": "O", "м": "m", "М": "M"})
@@ -37,8 +37,33 @@ def _first_order_id(text: str) -> str | None:
     return normalize_order_id(m.group(0)) if m else None
 
 
+# Lesson 5 baseline: keywords only, first match wins, otherwise abstain (None = «не знаю»).
+# Deliberately naive: «Не хочу повернення, обміняйте…» lands in «повернення» (the lesson's №4).
+_TRIAGE: tuple[tuple[Category, tuple[str, ...]], ...] = (
+    ("повернення", ("поверн", "povern")),      # only together with an order number, see below
+    ("брак", ("зламан", "розбит", "відклеє", "пошкодж")),
+    ("обмін", ("поміня", "обміня")),
+    ("оплата", ("списали", "оплата не прох", "помилка e-")),
+    ("акаунт", ("пароль", "увійти", "кабінет")),
+    ("доставка", ("посилк",)),
+)
+
+
+def triage_rules(text: str) -> Category | None:
+    """Category from keywords, or None when the rules are not sure («не знаю»)."""
+    low = unicodedata.normalize("NFKC", text).lower()   # not _fold: it would turn Cyrillic «о» into Latin
+    if not low.strip():
+        return None
+    for category, words in _TRIAGE:
+        if any(w in low for w in words):
+            if category == "повернення" and _first_order_id(text) is None:
+                return None          # refund without an order number: let a person or the model decide
+            return category
+    return None
+
+
 def make_card_rules(ticket: Ticket) -> CardResult:
-    """Card v1: order number or a note that it is missing. No model."""
+    """Card v2: order number or a note that it is missing, plus a category or «не знаю». No model."""
     if not ticket.text.strip():
         return CardResult(status="empty_input", ticket_id=ticket.ticket_id)
     order_id = _first_order_id(ticket.text)
@@ -46,5 +71,6 @@ def make_card_rules(ticket: Ticket) -> CardResult:
         status="ok",
         ticket_id=ticket.ticket_id,
         order_id=order_id,
+        category=triage_rules(ticket.text),
         missing=[] if order_id else ["order_id"],
     )
