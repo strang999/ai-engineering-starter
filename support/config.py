@@ -66,10 +66,16 @@ def resolve(model: str | None = None) -> tuple[str, str]:
     return provider, chosen or DEFAULT_MODELS.get(provider, "")
 
 
+def current_effort() -> str:
+    """Effort for the card call: use_model(effort=...) > AIEZ_EFFORT > "low"."""
+    over = _override.get() or {}
+    return over.get("effort") or (os.environ.get("AIEZ_EFFORT") or "low").strip().lower()
+
+
 @contextmanager
-def use_model(provider: str | None = None, model: str | None = None):
-    """Temporarily pick provider/model (run_evals uses this). Does not touch os.environ."""
-    token = _override.set({"provider": provider, "model": model})
+def use_model(provider: str | None = None, model: str | None = None, effort: str | None = None):
+    """Temporarily pick provider/model/effort (run_evals uses this). Does not touch os.environ."""
+    token = _override.set({"provider": provider, "model": model, "effort": effort})
     try:
         yield
     finally:

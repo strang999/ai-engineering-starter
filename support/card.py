@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from support import config
 from support.contract import CardResult, Ticket, TicketCard
 from support.llm import call_model
 from support.rules import normalize_order_id
@@ -42,8 +43,8 @@ def make_card(ticket: Ticket, *, variant: str = "A") -> CardResult:
     """Card v3, first version: trusts the model. Every ModelResult.status has its own branch."""
     if not ticket.text.strip():
         return CardResult(status="empty_input", ticket_id=ticket.ticket_id)   # no call for an empty ticket
-    result = call_model(build_card_prompt(ticket, variant), system=CARD_SYSTEM,
-                        schema=TicketCard, purpose="card")
+    result = call_model(build_card_prompt(ticket, variant), system=CARD_SYSTEM, schema=TicketCard,
+                        effort=config.current_effort(), purpose="card")
     if result.status in ("refusal", "truncated"):
         return CardResult(status=result.status, ticket_id=ticket.ticket_id)
     if result.status != "ok":                      # "error"; "tool_call" is not expected here

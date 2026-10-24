@@ -52,6 +52,91 @@ def test_cli_writes_a_run_file(capsys, tmp_path, monkeypatch):
     assert data["meta"]["provider"] == "baseline" and data["cases"]
 
 
+# --- lesson 7: the model path, several configs, a budget first ---------------------
+
+from support import config  # noqa: E402
+from support.evals import comparison, dry_run, summary  # noqa: E402
+from support.evals.__main__ import parse_configs  # noqa: E402
+from support.llm import collect_calls  # noqa: E402
+
+
+def test_model_run_in_mock_is_deterministic():
+    cases = select(load_cases())
+    a = summary(evaluate(cases, engine="model"))
+    b = summary(evaluate(cases, engine="model"))
+    assert a == b
+    assert a["cost_usd"] == 0.0 and a["p50"] > 0 and a["tokens"]["in"] > 0
+
+
+def test_runs_repeat_every_case():
+    cases = select(load_cases())[:3]
+    assert len(evaluate(cases, engine="model", runs=2)) == 6
+
+
+def test_dry_run_calls_nothing(tmp_path, monkeypatch):
+    monkeypatch.setenv("AIEZ_RUNS_DIR", str(tmp_path))
+    with collect_calls() as calls:
+        lines = dry_run(select(load_cases()), [("mock", "mock-1"), ("anthropic", "claude-haiku-5-5")], runs=2)
+    assert calls == [] and not list(tmp_path.iterdir())
+    assert lines[0].startswith("dry run · 30 cases × 2 runs × 2 configs")
+    assert any("claude-haiku-5-5" in ln and "≈ $" in ln for ln in lines)
+
+
+def test_parse_configs():
+    assert parse_configs(["anthropic:claude-haiku-5-5", "mock:mock-1"], None) == [
+        ("anthropic", "claude-haiku-5-5"), ("mock", "mock-1")]
+    assert parse_configs([], None) == [("mock", "mock-1")]
+    assert parse_configs(["gpt-6-luna"], "openai") == [("openai", "gpt-6-luna")]
+
+
+def test_comparison_table_and_cli(capsys):
+    rows = [("mock:mock-1", summary(evaluate(select(load_cases())[:5], engine="model")))]
+    table = comparison(rows * 2)
+    assert table[0].split() == ["config", "pass", "cov", "prec", "$/case", "p50", "p95"]
+    assert evals_main(["--model", "mock:mock-1", "--tag", "demo"]) == 0
+    out = capsys.readouterr().out
+    assert "provider=mock model=mock-1 · cases 10 (dev)" in out and "(simulated)" in out
+
+
+def test_dry_run_prices_each_call_not_the_sum():
+    """Haiku's 100K long-prompt tier applies per request: 14 runs cost 14/13 of 13 runs, not 5x."""
+    def usd(runs):
+        line = next(ln for ln in dry_run(select(load_cases()), [("anthropic", "claude-haiku-5-5")], runs=runs)
+                    if ln.startswith("anthropic:"))
+        return float(line.split("≈ $")[1].split()[0])
+    assert abs(usd(14) / usd(13) - 14 / 13) < 0.01
+
+
+def test_max_usd_stops_between_cases(monkeypatch):
+    import support.evals as ev
+    monkeypatch.setattr(ev, "run_card_case", lambda case, engine, variant="A": ({"status": "ok"}, []))
+    cases = select(load_cases())[:10]
+    results = ev.evaluate(cases, engine="model", max_usd=0.0)
+    assert results == []
+    assert len(ev.evaluate(cases, engine="model", max_usd=None)) == 10
+
+
+def test_label_with_several_models_writes_one_file_each(tmp_path, monkeypatch):
+    monkeypatch.setenv("AIEZ_RUNS_DIR", str(tmp_path))
+    assert evals_main(["--model", "mock:mock-1", "--model", "mock:mock-2", "--tag", "demo", "--label", "cmp"]) == 0
+    names = sorted(p.name for p in tmp_path.glob("*-cmp-*.json"))
+    assert len(names) == 2 and names[0].endswith("-cmp-mock-mock-1-low.json")
+
+
+def test_mock_cases_run_on_mock_in_a_live_run(monkeypatch):
+    for name in ("ANTHROPIC_API_KEY",):
+        monkeypatch.delenv(name, raising=False)
+    case = {"id": "x1", "kind": "card", "mock": "refusal", "input": {"text": "Де DEMO-1044?"}, "expect": {"status": "refusal"}}
+    with config.use_model("anthropic", "claude-haiku-5-5"):
+        assert evaluate([case], engine="model")[0].passed      # no key, still the mock scenario
+
+
+def test_effort_override_reaches_the_call():
+    with config.use_model("mock", None, "medium"):
+        assert config.current_effort() == "medium"
+    assert config.current_effort() == "low"
+
+
 # --- course convention: own cases in evals/own.jsonl, never in the tests ----------------
 
 import os  # noqa: E402
