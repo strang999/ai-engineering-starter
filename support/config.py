@@ -11,9 +11,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 
-# Provider -> default model. Mock is the default provider everywhere.
+# Provider -> default model: the cheapest current model per provider (checked 2026-10-24,
+# docs/VERIFIED.md). Mock is the default provider everywhere. Live defaults are UNTESTED
+# against the live APIs until someone runs lesson 7 with a key.
 DEFAULT_MODELS: dict[str, str] = {
     "mock": "mock-1",
+    "anthropic": "claude-haiku-5-5",
+    "openai": "gpt-6-luna",
+    "gemini": "gemini-2.5-flash-lite",
+}
+
+API_KEY_ENV: dict[str, tuple[str, ...]] = {
+    "anthropic": ("ANTHROPIC_API_KEY",),
+    "openai": ("OPENAI_API_KEY",),
+    "gemini": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
 }
 PROVIDERS: tuple[str, ...] = tuple(DEFAULT_MODELS)
 
@@ -63,6 +74,19 @@ def use_model(provider: str | None = None, model: str | None = None):
         yield
     finally:
         _override.reset(token)
+
+
+def api_key(provider: str) -> str | None:
+    """The key for a live provider, from the environment or .env. Never print or log it."""
+    for name in API_KEY_ENV.get(provider, ()):
+        value = (os.environ.get(name) or "").strip()
+        if value:
+            return value
+    return None
+
+
+def runs_dir() -> Path:
+    return Path(os.environ.get("AIEZ_RUNS_DIR") or ROOT / "runs")
 
 
 def utf8_ok() -> bool:

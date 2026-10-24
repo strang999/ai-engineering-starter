@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     if not args.baseline:
-        print("Модельний шлях з'явиться в уроці 6 (тег l06). Зараз запускай: "
+        print("Прогін моделі через evals з'явиться в уроці 7 (тег l07). Зараз запускай: "
               "uv run python -m support.evals --baseline")
         return 2
 

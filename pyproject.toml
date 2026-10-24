@@ -12,6 +12,10 @@ dependencies = [
 
 [project.optional-dependencies]
 tokens = ["tiktoken>=0.8"]
+# Live providers (lesson 6). Mock mode needs none of them.
+anthropic = ["anthropic>=2.3"]
+openai = ["openai>=3.37"]
+gemini = ["google-genai>=2.33"]
 
 [dependency-groups]
 dev = [

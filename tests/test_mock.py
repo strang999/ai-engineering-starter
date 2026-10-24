@@ -41,10 +41,17 @@ def test_scenarios_return_statuses(scenario, status, error):
         assert r.parsed is None
 
 
-def test_rate_limit_then_ok_fails_once():
+def test_one_retry_only_for_temporary_errors():
+    """Lesson 6: one retry on timeout / rate_limit, none on anything else."""
     with use_scenario("rate_limit_then_ok"):
-        assert card_call().error == "rate_limit"
-        assert card_call().status == "ok"
+        r = card_call()
+    assert r.status == "ok" and r.raw["attempts"] == 2
+    with use_scenario("rate_limit"):
+        r = card_call()
+    assert r.error == "rate_limit" and r.raw["attempts"] == 2
+    with use_scenario("spend_cap"):
+        r = card_call()
+    assert r.error == "spend_cap" and r.raw["attempts"] == 1
 
 
 def test_invented_scenarios_keep_valid_schema():
