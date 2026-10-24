@@ -13,6 +13,8 @@ import pytest  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def _isolated_runs(tmp_path, monkeypatch):
-    """Anything a test writes to runs/ or the SQLite file goes to a temp folder."""
+    """Anything a test writes to runs/ or the SQLite file goes to a temp folder; own cases are not read."""
     monkeypatch.setenv("AIEZ_RUNS_DIR", str(tmp_path / "runs"))
     monkeypatch.setenv("AIEZ_DB", str(tmp_path / "support.db"))
+    # the learner's own cases (evals/own.jsonl) never reach the tests: an empty temp file instead
+    monkeypatch.setenv("AIEZ_OWN_CASES", str(tmp_path / "own.jsonl"))

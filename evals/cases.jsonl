@@ -1,0 +1,3 @@
+{"id": "c001", "added_in": 1, "kind": "card", "split": "dev", "tags": ["happy"], "input": {"ticket_id": "T-0001", "customer_id": "c-17", "text": "Не отримав посилку, замовлення DEMO-1042"}, "expect": {"status": "ok", "order_id": "DEMO-1042", "missing": []}}
+{"id": "c002", "added_in": 1, "kind": "card", "split": "dev", "tags": ["missing_data"], "input": {"ticket_id": "T-0002", "customer_id": "c-17", "text": "Не отримав посилку"}, "expect": {"status": "ok", "order_id": null, "missing": ["order_id"]}}
+{"id": "c003", "added_in": 1, "kind": "card", "split": "dev", "tags": ["edge", "empty"], "input": {"ticket_id": "T-0003", "customer_id": "c-17", "text": "   "}, "expect": {"status": "empty_input"}}

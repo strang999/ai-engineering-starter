@@ -10,13 +10,13 @@
     button { margin-top: .5rem; padding: .5rem 1rem; font: inherit; cursor: pointer; }
     .card { margin-top: 1rem; border: 1px solid #ccc; border-radius: 8px; padding: 1rem; }
     .card dt { font-weight: 600; margin-top: .5rem; }
-    .card dd { margin: 0; }
+    .card dd { margin: 0; white-space: pre-wrap; }
     .muted { color: #666; }
   </style>
 </head>
 <body>
   <h1>Картка звернення</h1>
-  <p class="muted">Прототип уроку 1: усе працює в браузері, без бібліотек, без ключів і без моделі.</p>
+  <p class="muted">З уроку 3 логіка картки живе в Python-сервісі. Сторінка тільки надсилає текст на <code>POST /api/card</code>. Ключів у браузері нема й не буде.</p>
 
   <label for="ticket">Текст звернення клієнта</label>
   <textarea id="ticket">Не отримав посилку, замовлення DEMO-1042</textarea>
@@ -25,33 +25,36 @@
   <div id="out" class="card" hidden></div>
 
   <script>
-    // Same rule as support/rules.py in lesson 3: "demo", spaces/dash, exactly 4 digits -> DEMO-1042.
-    // (?!\d): "DEMO-10420" is not an order number, so the card says «Номер не надано».
-    const ORDER_RE = /demo[\s\-_]*(\d{4})(?!\d)/i;
+    const LABELS = { order_id: "номер замовлення", amount: "сума" };
 
-    function makeCard(text) {
-      if (!text.trim()) {
-        return { status: "empty_input", text: text, order: null, missing: [] };
-      }
-      const m = text.match(ORDER_RE);
-      const order = m ? "DEMO-" + m[1] : null;
-      return { status: "ok", text: text, order: order, missing: order ? [] : ["номер замовлення"] };
+    function formatKop(kop) {
+      const sign = kop < 0 ? "-" : "";
+      const abs = Math.abs(kop);
+      const hryvni = Math.floor(abs / 100).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+      return `${sign}${hryvni},${String(abs % 100).padStart(2, "0")} грн`;
     }
 
-    function render(card) {
+    function rowsFor(card) {
+      if (card.status === "empty_input") return [["Статус", "Порожнє звернення: картку не створено."]];
+      const rows = [
+        ["Статус", card.status],
+        ["Номер замовлення", card.order_id || "Номер не надано"],
+        ["Чого бракує", card.missing.length ? card.missing.map(m => LABELS[m] || m).join(", ") : "нічого"],
+      ];
+      if (card.category) rows.push(["Категорія", card.category]);
+      if (card.amount_kop !== null && card.amount_kop !== undefined) rows.push(["Сума", formatKop(card.amount_kop)]);
+      if (card.checks && Object.keys(card.checks).length) {
+        rows.push(["Перевірки", Object.entries(card.checks).map(([k, v]) => `${k}: ${v}`).join("\n")]);
+      }
+      if (card.draft_reply) rows.push(["Чернетка відповіді", card.draft_reply]);
+      return rows;
+    }
+
+    function render(rows) {
       const out = document.getElementById("out");
       out.hidden = false;
       out.replaceChildren();
-      if (card.status === "empty_input") {
-        out.textContent = "Порожнє звернення: картку не створено.";
-        return;
-      }
       const dl = document.createElement("dl");
-      const rows = [
-        ["Звернення", card.text],
-        ["Номер замовлення", card.order || "Номер не надано"],
-        ["Чого бракує", card.missing.length ? card.missing.join(", ") : "нічого"],
-      ];
       for (const [k, v] of rows) {
         const dt = document.createElement("dt"); dt.textContent = k;
         const dd = document.createElement("dd"); dd.textContent = v;
@@ -60,8 +63,19 @@
       out.append(dl);
     }
 
-    document.getElementById("make").addEventListener("click", () => {
-      render(makeCard(document.getElementById("ticket").value));
+    document.getElementById("make").addEventListener("click", async () => {
+      const text = document.getElementById("ticket").value;
+      try {
+        const res = await fetch("/api/card", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        render(rowsFor(await res.json()));
+      } catch (err) {
+        render([["Сервіс недоступний", "Запусти в терміналі: uv run fastapi dev support/server.py\nі відкрий http://127.0.0.1:8000\n(" + err.message + ")"]]);
+      }
     });
   </script>
 </body>
