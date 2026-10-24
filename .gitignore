@@ -1,0 +1,20 @@
+# secrets: never commit
+.env
+.env.*
+!.env.example
+
+# local state
+runs/
+data/support.db
+data/support.db-*
+doctor.txt
+
+# lesson scratch files: save a lesson's Python block as try_<name>.py in the root, run it, delete it
+try_*.py
+
+# python / tools
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/

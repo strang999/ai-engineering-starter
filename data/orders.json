@@ -1,0 +1,8 @@
+[
+  {"order_id": "DEMO-1042", "customer_id": "c-17", "status": "shipped", "total_kop": 120000, "refunded_kop": 0, "delivered_at": null},
+  {"order_id": "DEMO-1043", "customer_id": "c-17", "status": "delivered", "total_kop": 54000, "refunded_kop": 0, "delivered_at": "2026-10-20"},
+  {"order_id": "DEMO-1044", "customer_id": "c-17", "status": "paid", "total_kop": 89990, "refunded_kop": 0, "delivered_at": null},
+  {"order_id": "DEMO-1045", "customer_id": "c-17", "status": "cancelled", "total_kop": 25000, "refunded_kop": 25000, "delivered_at": null},
+  {"order_id": "DEMO-1050", "customer_id": "c-23", "status": "delivered", "total_kop": 149900, "refunded_kop": 50000, "delivered_at": "2026-10-12"},
+  {"order_id": "DEMO-2001", "customer_id": "c-99", "status": "delivered", "total_kop": 300000, "refunded_kop": 0, "delivered_at": "2026-10-18"}
+]

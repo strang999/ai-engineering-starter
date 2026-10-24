@@ -1,0 +1,30 @@
+{"ticket_id": "T-0001", "card": {"category": "доставка", "category_evidence": "посилку", "order_id": {"value": "DEMO-1042", "evidence": "DEMO-1042"}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0002", "card": {"category": "доставка", "category_evidence": "посилку", "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0003", "card": {"category": "невідомо", "category_evidence": null, "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0004", "card": {"category": "повернення", "category_evidence": "повернути", "order_id": {"value": "DEMO-1043", "evidence": "DEMO-1043"}, "amount": {"value": "540 грн", "evidence": "540 грн"}, "tags": []}}
+{"ticket_id": "T-0005", "card": {"category": "брак", "category_evidence": "відклеєною", "order_id": {"value": "DEMO-1050", "evidence": "DEMO-1050"}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0006", "card": {"category": "обмін", "category_evidence": "поміняти", "order_id": {"value": "DEMO-1050", "evidence": "DEMO-1050"}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0007", "card": {"category": "оплата", "category_evidence": "Списали", "order_id": {"value": null, "evidence": null}, "amount": {"value": "1 250,00 грн", "evidence": "1 250,00 грн"}, "tags": []}}
+{"ticket_id": "T-0008", "card": {"category": "акаунт", "category_evidence": "увійти", "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0009", "card": {"category": "доставка", "category_evidence": "де воно", "order_id": {"value": "DEMO-1042", "evidence": "dеmо-1042"}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0010", "card": {"category": "доставка", "category_evidence": "Де DEMO-1044?", "order_id": {"value": "DEMO-1044", "evidence": "DEMO-1044"}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0011", "card": {"category": "невідомо", "category_evidence": null, "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0012", "card": {"category": "повернення", "category_evidence": "Поверніть", "order_id": {"value": "DEMO-1043", "evidence": "DEMO-1043"}, "amount": {"value": "5000 грн", "evidence": "5000 грн"}, "tags": ["погроза_суду"]}}
+{"ticket_id": "T-0013", "card": {"category": "доставка", "category_evidence": "Кур'єр", "order_id": {"value": "DEMO-1044", "evidence": "DEMO-1044"}, "amount": {"value": null, "evidence": null}, "tags": ["терміново"]}}
+{"ticket_id": "T-0014", "card": {"category": "повернення", "category_evidence": "повернення", "order_id": {"value": "DEMO-1050", "evidence": "DEMO-1050"}, "amount": {"value": "500 грн", "evidence": "500 грн"}, "tags": ["повторне_звернення"]}}
+{"ticket_id": "T-0015", "card": {"category": "обмін", "category_evidence": "обміняйте", "order_id": {"value": "DEMO-1043", "evidence": "DEMO-1043"}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0016", "card": {"category": "брак", "category_evidence": "зламана", "order_id": {"value": "DEMO-1043", "evidence": "DEMO-1043"}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0017", "card": {"category": "оплата", "category_evidence": "Оплата", "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0018", "card": {"category": "акаунт", "category_evidence": "пароль", "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0019", "card": {"category": "інше", "category_evidence": "сертифікати", "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0020", "card": {"category": "брак", "category_evidence": "розбитий", "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": ["повторне_звернення", "скарга"]}}
+{"ticket_id": "T-0021", "card": {"category": "інше", "category_evidence": "Курʼєр нахамив", "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": ["скарга"]}}
+{"ticket_id": "T-0022", "card": {"category": "повернення", "category_evidence": "povernit", "order_id": {"value": "DEMO-1043", "evidence": "demo-1043"}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0023", "card": {"category": "повернення", "category_evidence": "повернути", "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0024", "card": {"category": "акаунт", "category_evidence": "email", "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0025", "card": {"category": "інше", "category_evidence": null, "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0026", "card": {"category": "невідомо", "category_evidence": null, "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0027", "card": {"category": "повернення", "category_evidence": "Поверніть", "order_id": {"value": null, "evidence": null}, "amount": {"value": "1500 грн", "evidence": "1500 грн"}, "tags": []}}
+{"ticket_id": "T-0028", "card": {"category": "доставка", "category_evidence": "посилка", "order_id": {"value": "DEMO-1042", "evidence": "DEMO 1042"}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0029", "card": {"category": "доставка", "category_evidence": "доставка", "order_id": {"value": null, "evidence": null}, "amount": {"value": null, "evidence": null}, "tags": []}}
+{"ticket_id": "T-0030", "card": {"category": "обмін", "category_evidence": "Обміняйте", "order_id": {"value": "DEMO-1043", "evidence": "DEMO-1043"}, "amount": {"value": null, "evidence": null}, "tags": []}}
