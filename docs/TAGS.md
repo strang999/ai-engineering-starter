@@ -25,6 +25,7 @@ Test counts below were recorded on 2026-10-24 (contract 1.1) with `git checkout 
 | `l07` | `run_evals` model path, several `--model`s with a comparison table, `--dry-run`, `--runs`, `--effort`, `--max-usd`, `model-choice.md` | 152 passed, 3 skipped | `uv run python -m support.evals` · `uv run python -m support.evals --model mock:mock-1 --model anthropic:claude-haiku-5-5 --dry-run` |
 | `l08` | `check_fact`, category evidence check, `parse_amount_kop`, `needs_review`, one repeat on `schema_error`, 8 `contract` edge cases `c031`–`c038`, `/api/card?engine=model` | 168 passed, 3 skipped | `uv run python -m support.evals --tag contract` |
 | `l09` | `support/context.py`: `update_customer_state`, reply draft chain `make_card_with_reply`, prompt variant `B`, `--variant`, 5 `context` cases `c039`–`c043`, order-owner check (`c041` → `needs_review`); contract 1.2: `--prompt zero\|one\|few\|reason`, `evals/examples.jsonl` + `examples_bias.jsonl`, `--examples`, `--reverse-examples`, `TicketCardReasoned`, prompt-aware mock, `--runs N --vote` | 195 passed, 3 skipped | `uv run python -m support.evals --tag context --variant B` · `uv run python -m support.context c-17` · `uv run python -m support.evals --prompt few --tag demo` |
+| `l10` | `data/kb/` (7 policy files + `archive/`), `support/rag/` (`split_doc`, `keyword_search`, `vector_search`, `hybrid_search`, `search_kb`, `answer_from_kb`, `check_answer`), `embed()` with routes mock / local / openai / gemini, `data/kb_vectors.npz` (real e5 vectors for the course texts), mock `purpose="rag"` + 3 scenarios, cases `r001`–`r016` and `a001`–`a017`, `--kind retrieval\|answer --mode --k --chunk-size --kb`, `add-question`, `POST /api/answer` | 235 passed, 3 skipped | `uv run python -m support.evals --kind retrieval --mode all --tag happy` · `uv run python -m support.evals --kind answer` |
 
 ## Eval numbers per tag (mock, for lesson writers)
 
@@ -40,5 +41,9 @@ Test counts below were recorded on 2026-10-24 (contract 1.1) with `git checkout 
 | `l09` | same, `--tag demo` | pass 7/10 / 8/10 / 10/10 / 8/10 |
 | `l09` | `--prompt few --reverse-examples` | pass 41/43 (c011 flips back to `невідомо`) |
 | `l09` | `--prompt few --examples evals/examples_bias.jsonl` | pass 37/43 · precision 26/31 (5 ambiguous tickets → `обмін`) |
+| `l10` | `--kind retrieval --mode all --tag happy` (10 questions, 7 chunks) | keyword 9/10 · 10/10; vector 10/10 · 10/10; hybrid 9/10 · 10/10 (hit@1 · hit@3) |
+| `l10` | same, `--chunk-size 200` (20 chunks) | keyword 8/10 · 9/10; vector 9/10 · 10/10; hybrid 8/10 · 10/10 |
+| `l10` | `--kind retrieval --mode all` (all 16 incl. edge) | keyword 11/16 · 13/16; vector 15/16 · 16/16; hybrid 13/16 · 16/16 |
+| `l10` | `--kind answer` (mock) | pass 16/17; a017 fails on purpose (`answers_without_basis`) |
 
-The mock fails c011, c021 and c025 on purpose (fixtures in `fixtures/mock_replies.jsonl`), so lesson 7 has failures to read. From `l09` the mock also reacts to examples and the short `why` field by three fixed rules (CONTRACT.md 11.14), so lesson 9 can show the zero → one → few ladder offline.
+The `l10` retrieval numbers are real: the vectors in `data/kb_vectors.npz` come from multilingual-e5-small and the table matches a run of the lesson's own code on that model (24.10). The mock fails c011, c021 and c025 on purpose (fixtures in `fixtures/mock_replies.jsonl`), so lesson 7 has failures to read. From `l09` the mock also reacts to examples and the short `why` field by three fixed rules (CONTRACT.md 11.14), so lesson 9 can show the zero → one → few ladder offline.

@@ -195,4 +195,7 @@ def call_model(messages: list[dict], *, system: str | None = None,
     return result
 
 
-__all__ = ["Usage", "ToolCall", "ModelResult", "call_model", "collect_calls", "strip_fences", "parse_into"]
+from support.llm.embed import EmbedResult, embed  # noqa: E402  (lesson 10; embed.py needs only config)
+
+__all__ = ["Usage", "ToolCall", "ModelResult", "call_model", "collect_calls", "strip_fences", "parse_into",
+           "EmbedResult", "embed"]

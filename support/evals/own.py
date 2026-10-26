@@ -93,8 +93,10 @@ def read_jsonl(path: Path) -> list[dict]:
 
 def normalize(row: dict, name: str = "evals/own.jsonl") -> dict:
     """Fill what a learner may leave out: kind card, split dev, tag own, ticket_id and customer_id."""
-    if not isinstance(row.get("input"), dict) or not isinstance(row["input"].get("text"), str):
-        raise ValueError(f"{name}, кейс {row['id']}: потрібне поле \"input\": {{\"text\": \"...\"}}")
+    kind = row.get("kind", "card")
+    field = "question" if kind in ("retrieval", "answer") else "text"          # lesson 10 kinds ask a question
+    if not isinstance(row.get("input"), dict) or not isinstance(row["input"].get(field), str):
+        raise ValueError(f"{name}, кейс {row['id']}: потрібне поле \"input\": {{\"{field}\": \"...\"}}")
     row.setdefault("kind", "card")
     row.setdefault("split", "dev")
     row.setdefault("expect", {})
@@ -224,4 +226,54 @@ def add_case_main(argv: list[str]) -> int:
     print(json.dumps(row, ensure_ascii=False))
     if not row["expect"]:
         print("увага: жодного очікування, такий кейс завжди проходить. Додай --category, --order-id чи --status.")
+    return 0
+
+
+def add_question_main(argv: list[str]) -> int:
+    """uv run python -m support.evals add-question "питання" --evidence "цитата з документа" (lesson 10)"""
+    from support.rag import NOT_FOUND
+
+    ap = argparse.ArgumentParser(prog="python -m support.evals add-question",
+                                 description="Add one own retrieval/answer case to evals/own.jsonl")
+    ap.add_argument("question", help="the question, in quotes")
+    ap.add_argument("--evidence", help="the quote from your document that holds the answer")
+    ap.add_argument("--no-answer", action="store_true", help="the knowledge base has no answer: expect «%s»" % NOT_FOUND)
+    ap.add_argument("--kind", default="retrieval", choices=["retrieval", "answer"],
+                    help="retrieval = hit@k only (default); answer = the model answers and the sources are checked")
+    ap.add_argument("--tag", action="append", default=[], help="extra tag besides own; repeat")
+    ap.add_argument("--id", default=None, help="case id, default the next own-NN")
+    ap.add_argument("--split", default="dev", choices=["dev", "holdout"])
+    args = ap.parse_args(argv)
+
+    if not args.question.strip():
+        print("Порожнє питання: пошук його не запускає, кейс нічого не перевіряв би.")
+        return 2
+    if bool(args.evidence) == bool(args.no_answer):
+        print("Потрібне одне з двох: --evidence \"цитата\" або --no-answer.")
+        return 2
+    if args.no_answer and args.kind == "retrieval":
+        print("Питання без відповіді перевіряє відповідь моделі: додай --kind answer.")
+        return 2
+    try:
+        existing = load_own_cases()
+        from support.evals import load_cases
+        taken = {c["id"] for c in load_cases(own=True)}
+    except ValueError as exc:
+        print(f"Не можу прочитати кейси: {exc}")
+        return 2
+    case_id = args.id or next_own_id(existing)
+    if case_id in taken:
+        print(f"id {case_id} уже зайнятий. Візьми інший або не пиши --id.")
+        return 2
+    if args.no_answer:
+        expect = {"found": False, "must_contain": NOT_FOUND}
+    elif args.kind == "answer":
+        expect = {"found": True, "evidence": args.evidence}
+    else:
+        expect = {"evidence": args.evidence}
+    row = {"id": case_id, "added_in": int(STARTER_TAG[1:]), "kind": args.kind, "split": args.split,
+           "tags": ["own", *[t for t in args.tag if t != "own"]], "input": {"question": args.question}, "expect": expect}
+    path = append_case(row)
+    print(f"додано {case_id} у {_show(path)}")
+    print(json.dumps(row, ensure_ascii=False))
     return 0

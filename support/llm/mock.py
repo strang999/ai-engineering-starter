@@ -43,6 +43,7 @@ SCENARIOS: tuple[str, ...] = (
     "invented_category", "refusal", "truncated", "rate_limit_then_ok", "rate_limit",
     "timeout", "spend_cap", "server_error", "tool_call_status", "tool_call_wrong_amount",
     "tool_call_unoffered_tool", "injection_followed",
+    "invented_source", "no_sources", "answers_without_basis",       # lesson 10 (purpose="rag")
 )
 TOOL_SCENARIOS = ("tool_call_status", "tool_call_wrong_amount", "tool_call_unoffered_tool", "injection_followed")
 ERROR_SCENARIOS = {"rate_limit": "rate_limit", "timeout": "timeout", "spend_cap": "spend_cap", "server_error": "server_error"}
@@ -234,6 +235,12 @@ def complete(messages: list[dict], *, system: str | None, schema: type | None,
     if purpose == "reply":
         return done("ok", reply_text(_last_user_text(messages)), stop="end_turn")
 
+    if purpose == "rag":
+        body = json.dumps(rag_answer(_last_user_text(messages), scenario), ensure_ascii=False)
+        if scenario == "truncated":
+            return done("truncated", body[: len(body) // 2], stop="max_tokens")
+        return done("ok", body, stop="end_turn")
+
     return done("ok", f"mock-1: немає заготовленої відповіді для purpose={purpose!r}", stop="end_turn")
 
 
@@ -359,6 +366,54 @@ def reply_text(prompt: str) -> str:
     if category == "повернення":
         text += " Умови повернення перевірить оператор."
     return text
+
+
+# --- lesson 10: the answer from fragments ------------------------------------------------
+
+RAG_FIXTURES = ROOT / "fixtures" / "mock_rag.jsonl"
+_NOT_FOUND = "У джерелах цього немає"
+_FRAGMENT_RE = re.compile(r"^\[([^\]\n]+#\d+)\] (.*?)(?=^\[[^\]\n]+#\d+\] |\n\nПитання:)", re.S | re.M)
+_QUESTION_RE = re.compile(r"Питання:\s*(.*)\s*$", re.S)
+
+
+@lru_cache(maxsize=1)
+def _rag_fixtures() -> dict[str, str | None]:
+    """question (normalised) -> the quote that answers it, or null when the knowledge base has no answer."""
+    rows = [json.loads(line) for line in RAG_FIXTURES.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return {_norm_q(r["question"]): r["evidence"] for r in rows}
+
+
+def _norm_q(text: str) -> str:
+    return re.sub(r"[\W_]+", " ", text.lower()).strip()
+
+
+def rag_answer(prompt: str, scenario: str = "ok") -> dict:
+    """What a careful model would answer from the fragments in the prompt. It knows the course questions
+    (fixtures/mock_rag.jsonl): if the fragment with the answer is in the prompt it quotes it, if not it says so.
+    A question it does not know gets the refusal: the mock is not a model."""
+    fragments = {fid: text.strip() for fid, text in _FRAGMENT_RE.findall(prompt)}
+    q = _QUESTION_RE.search(prompt)
+    question = q.group(1) if q else ""
+    known = _rag_fixtures()
+    key = _norm_q(question)
+    evidence = known.get(key)
+    hit = next(((fid, text) for fid, text in fragments.items() if evidence and evidence in text), None)
+
+    if scenario == "answers_without_basis" and fragments:
+        fid = next(iter(fragments))          # a confident answer with a real source that does not contain it
+        return {"found": True, "answer": f"Так, це можливо [{fid}].", "sources": [fid]}
+    if hit is None:
+        why = ("у знайдених фрагментах нема відповіді на це питання"
+               if key in known else "це питання поза заготовками mock; mock не вигадує відповідей")
+        return {"found": False, "answer": f"{_NOT_FOUND}: {why}.", "sources": []}
+    fid, text = hit
+    sentence = next((s for s in re.split(r"(?<=[.!?])\s+", text) if evidence in s), text)
+    sources = [fid]
+    if scenario == "invented_source":
+        sources.append("garantiya.md#9")
+    elif scenario == "no_sources":
+        sources = []
+    return {"found": True, "answer": f"{sentence.strip()} [{fid}]", "sources": sources}
 
 
 def _tool_turn(messages, tools, scenario, done):

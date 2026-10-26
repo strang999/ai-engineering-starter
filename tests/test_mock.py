@@ -74,7 +74,7 @@ def test_tool_scenarios():
 
 
 def test_all_scenarios_are_known_and_bad_name_raises():
-    assert len(SCENARIOS) == 17
+    assert len(SCENARIOS) == 20
     with pytest.raises(ValueError):
         with use_scenario("nope"):
             pass

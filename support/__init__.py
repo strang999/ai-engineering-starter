@@ -1,3 +1,3 @@
 """«Демо-маркет» support desk: the course project of «AI Engineering з нуля»."""
 
-STARTER_TAG = "l09"   # the tag this tree corresponds to; the snippet harness reads it
+STARTER_TAG = "l10"   # the tag this tree corresponds to; the snippet harness reads it

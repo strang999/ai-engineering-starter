@@ -8,10 +8,14 @@ requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.9,<3",
     "fastapi[standard]>=0.115",
+    "numpy>=2.0",
+    "rank-bm25>=0.2.2",
 ]
 
 [project.optional-dependencies]
 tokens = ["tiktoken>=0.8"]
+# Local embeddings for lesson 10 (the multilingual-e5-small model, about 470 MB, downloads on first use)
+rag-local = ["sentence-transformers>=5"]
 # Live providers (lesson 6). Mock mode needs none of them.
 anthropic = ["anthropic>=2.3"]
 openai = ["openai>=3.37"]

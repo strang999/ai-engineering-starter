@@ -86,6 +86,10 @@ markupsafe==3.0.4
     # via jinja2
 mdurl==0.1.2
     # via markdown-it-py
+numpy==2.5.4
+    # via
+    #   ai-engineering-starter
+    #   rank-bm25
 opentelemetry-api==1.45.1
     # via
     #   fastapi
@@ -146,6 +150,8 @@ python-multipart==0.0.32
     # via fastapi
 pyyaml==6.0.3
     # via uvicorn
+rank-bm25==0.2.2
+    # via ai-engineering-starter
 requests==2.34.2
     # via
     #   opentelemetry-exporter-http-transport

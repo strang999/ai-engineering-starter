@@ -20,6 +20,7 @@ from support.config import ROOT
 from support.context import make_card_with_reply
 from support.contract import CardResult, Ticket
 from support.data import connect, count_repeats, save_ticket
+from support.rag import AnswerResult, answer_from_kb
 from support.rules import make_card_rules
 
 app = FastAPI(title="Демо-маркет · support desk", version="1.0")
@@ -70,3 +71,15 @@ class RepeatsResponse(BaseModel):
 def api_repeats(order_id: str = Query(pattern=r"^DEMO-[0-9]{4}$")) -> RepeatsResponse:
     with connect() as conn:
         return RepeatsResponse(order_id=order_id, repeats=count_repeats(conn, order_id, datetime.now(timezone.utc)))
+
+
+class AnswerRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    question: str = Field(max_length=1000)
+
+
+@app.post("/api/answer", response_model=AnswerResult)
+def api_answer(req: AnswerRequest, mode: Literal["keyword", "vector", "hybrid"] = "hybrid",
+               k: int = Query(default=3, ge=1, le=10)) -> AnswerResult:
+    """Lesson 10: an answer from data/kb/ with sources. `found=false` and «У джерелах цього немає» when the base has none."""
+    return answer_from_kb(req.question, k, mode)

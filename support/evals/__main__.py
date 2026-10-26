@@ -11,6 +11,10 @@
     uv run python -m support.evals --prompt few --reverse-examples       # the same 3 examples, reverse order
     uv run python -m support.evals --prompt few --examples evals/examples_bias.jsonl   # 3 of one category
     uv run python -m support.evals --runs 3 --vote                       # majority of 3 runs per case
+    uv run python -m support.evals --kind retrieval --mode all --tag happy    # hit@k of 3 searches (lesson 10)
+    uv run python -m support.evals --kind retrieval --mode vector --chunk-size 200
+    uv run python -m support.evals --kind answer                         # retrieve, ask, check the sources
+    uv run python -m support.evals add-question "питання" --evidence "цитата з документа"   # your own retrieval case
 """
 
 from __future__ import annotations
@@ -23,7 +27,7 @@ from support import config
 from support.card import PROMPTS, SHOTS, load_examples, shots
 from support.evals import (comparison, dry_run, evaluate, example_leaks, load_cases, new_run_id, report,
                            save_run, select, show_path, summary)
-from support.evals.own import add_case_main
+from support.evals.own import add_case_main, add_question_main
 
 
 def parse_configs(models: list[str], provider: str | None) -> list[tuple[str, str]]:
@@ -45,8 +49,10 @@ def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if argv[:1] == ["add-case"]:
         return add_case_main(argv[1:])
+    if argv[:1] == ["add-question"]:
+        return add_question_main(argv[1:])
     ap = argparse.ArgumentParser(prog="python -m support.evals", description="Run evals/cases.jsonl + evals/own.jsonl")
-    ap.add_argument("--kind", default="card", choices=["card"])
+    ap.add_argument("--kind", default="card", choices=["card", "retrieval", "answer"])
     ap.add_argument("--baseline", action="store_true", help="plain-code rules instead of a model")
     ap.add_argument("--provider", default=None, help="mock | anthropic | openai | gemini")
     ap.add_argument("--model", action="append", default=[], help="model id or provider:model; repeat to compare")
@@ -58,6 +64,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--examples", default=None, help="examples file for --prompt one/few (default evals/examples.jsonl)")
     ap.add_argument("--reverse-examples", action="store_true", help="the same examples in reverse order")
     ap.add_argument("--vote", action="store_true", help="with --runs N: majority category; no majority -> needs_review")
+    ap.add_argument("--mode", default="hybrid", choices=["keyword", "vector", "hybrid", "all"],
+                    help="search for --kind retrieval | answer (lesson 10); all = a table of the three")
+    ap.add_argument("--kb", default=None, help="folder with your .md documents instead of data/kb (lesson 10)")
+    ap.add_argument("--k", type=int, default=3, help="how many chunks the search returns (lesson 10)")
+    ap.add_argument("--chunk-size", type=int, default=800, help="characters per chunk (lesson 10)")
     ap.add_argument("--split", default="dev", choices=["dev", "holdout"])
     ap.add_argument("--tag", default=None, help="only cases with this tag; own = only evals/own.jsonl")
     ap.add_argument("--id", action="append", default=[], dest="ids", help="only this case id; repeat")
@@ -96,6 +107,13 @@ def main(argv: list[str] | None = None) -> int:
             examples = examples[::-1]
         prompt_label += f" ({', '.join(str(e.get('id', '?')) for e in examples)})"
     run_id = new_run_id()
+
+    if args.kind in ("retrieval", "answer"):            # lesson 10: no card prompt, no examples, no votes
+        from support.evals.rag import main_rag
+        if args.k < 1 or args.chunk_size < 50:
+            print("--k від 1, --chunk-size від 50.")
+            return 2
+        return main_rag(args, cases, parse_configs(args.model, args.provider))
 
     if args.baseline:
         results = evaluate(cases, engine="baseline")

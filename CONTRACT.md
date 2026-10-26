@@ -125,7 +125,8 @@ class CardResult(BaseModel):  # що повертає НАШ КОД інтерф
 | `update_customer_state` | `l09` | `(state: dict, new_facts: dict, orders: list[dict]) -> dict` |
 | `make_card_with_reply` | `l09` | `(ticket: Ticket, *, variant: str = "A", orders: list[dict] \| None \| "load" = "load", prompt: str = "zero", examples=None) -> CardResult`; `None` = сервіс замовлень не відповів; `prompt` міняє тільки запит картки |
 | `search_kb` | `l10` | `(question: str, k: int = 3, mode: str = "hybrid") -> list[Chunk]` |
-| `answer_from_kb` | `l10` | `(question: str) -> RagAnswer(found, answer, sources)` |
+| `answer_from_kb` | `l10` | `(question: str, k: int = 3, mode: str = "hybrid") -> AnswerResult` (модель повертає `RagAnswer(found, answer, sources)`, код додає `status`, `retrieved`, `checks`) |
+| `embed` | `l10` | `(texts: list[str], *, kind="passage") -> EmbedResult` |
 
 ## 5. `call_model`: один виклик для всіх провайдерів
 
@@ -168,7 +169,7 @@ class ModelResult:
 
 **Mock-режим** (`support/llm/mock.py`), за замовчуванням: детермінований, без мережі, `cost_usd = 0.0` з `simulated_cost=True`, час фіксований (`120 мс + 1 мс на 10 вихідних токенів`), токени ≈ символи / 4. Картки беруться з `fixtures/mock_replies.jsonl` за `ticket_id`, інакше з невеликого fallback на правилах. Mock читає звернення з блоку `<ticket id="T-0001">текст</ticket>` в останньому повідомленні користувача.
 
-Сценарії (`AIEZ_MOCK_SCENARIO`, `use_scenario(...)` або поле `"mock"` у рядку `cases.jsonl`): `ok`, `fenced_json`, `malformed_json`, `wrong_schema`, `invented_evidence`, `invented_category`, `refusal`, `truncated`, `rate_limit_then_ok`, `rate_limit`, `timeout`, `spend_cap`, `server_error`, `tool_call_status`, `tool_call_wrong_amount`, `tool_call_unoffered_tool`, `injection_followed`.
+Сценарії (`AIEZ_MOCK_SCENARIO`, `use_scenario(...)` або поле `"mock"` у рядку `cases.jsonl`): `ok`, `fenced_json`, `malformed_json`, `wrong_schema`, `invented_evidence`, `invented_category`, `refusal`, `truncated`, `rate_limit_then_ok`, `rate_limit`, `timeout`, `spend_cap`, `server_error`, `tool_call_status`, `tool_call_wrong_amount`, `tool_call_unoffered_tool`, `injection_followed`, з `l10` ще `invented_source`, `no_sources`, `answers_without_basis` (для `purpose="rag"`).
 
 `prices.py` (тег `l06`): `{model: Price(input_per_mtok, output_per_mtok, cached_per_mtok, checked_at, url, cache_write_per_mtok=None)}`; `None` у записі в кеш означає 1,25 × ціна входу (5-хвилинний кеш Anthropic). `estimate_usd` рахує **один** запит: поріг довгого запиту (Haiku 5.5, 100K) діє на запит, ніколи на суму. Тільки звідти беруться ціни; дати й джерела в `docs/VERIFIED.md`. Модель без ціни: `cost_usd = 0.0`, а звіт `run_evals` пише `price unknown` і ніколи мовчки не вдає, що модель безкоштовна.
 
@@ -208,7 +209,7 @@ class ModelResult:
 - `kind`: `card` (уроки 1–9), `retrieval` і `answer` (10), `tool` (13), `agent` (14), `policy` (15), `failure` (17).
 - `input` для `card`: `ticket_id`, `customer_id`, `text`; з `l09` необов'язково `"orders": "not_loaded"` (сервіс замовлень не відповів). З `l09` модельний прогін `card` іде через `make_card_with_reply`, тож у результаті є `draft_reply`.
 - `expect`: перелічені ключі мають збігтися точно, неперелічені не перевіряються. Ключі звіряються з полями `CardResult`. Оператори: `<поле>_in` (одне з), `must_contain`, `must_not_contain` (для `card` перевіряють `draft_reply`, для `answer` поле `answer`, для `agent` поле `text`), `tools_called`, `tools_not_called`, `no_action_over_kop`, `max_attempts`.
-- id ідуть по порядку: `c001`–`c003` (урок 1, у `l03`), `c004`–`c030` (урок 5), `c031`–`c038` (урок 8, тег `contract`), `c039`–`c043` (урок 9, тег `context`).
+- id ідуть по порядку: `c001`–`c003` (урок 1, у `l03`), `c004`–`c030` (урок 5), `c031`–`c038` (урок 8, тег `contract`), `c039`–`c043` (урок 9, тег `context`), `r001`–`r016` (урок 10, `retrieval`), `a001`–`a017` (урок 10, `answer`).
 - Жодних персональних даних.
 - Кейс з полем `mock` перевіряє наш код на змодельованому збої, тому `run_evals` завжди проганяє його через mock, навіть у живому прогоні (тег `l07`). Живий звіт каже, скільки таких кейсів пішло через mock.
 
@@ -241,7 +242,7 @@ uv run python -m support.evals add-case "текст" [--category C] [--order-id 
     [--status ok] [--must-contain TEXT] [--tag T] [--customer c-17] [--mock SCENARIO]
 ```
 
-Прапорці з'являються разом з уроками: `--baseline`, `--tag`, `--split`, `--label`, `--id` і `add-case` у `l03`; `--provider`, `--model`, `--effort`, `--runs`, `--dry-run`, `--max-usd` у `l07`; `--variant`, `--prompt`, `--examples`, `--reverse-examples`, `--vote` у `l09`.
+Прапорці з'являються разом з уроками: `--baseline`, `--tag`, `--split`, `--label`, `--id` і `add-case` у `l03`; `--provider`, `--model`, `--effort`, `--runs`, `--dry-run`, `--max-usd` у `l07`; `--variant`, `--prompt`, `--examples`, `--reverse-examples`, `--vote` у `l09`; `--kind retrieval|answer`, `--mode`, `--k`, `--chunk-size` у `l10`.
 
 - `--tag own` бере тільки свої кейси з `evals/own.jsonl`. `--id` можна повторити: `--id c039 --id c041` проганяє тільки ці кейси.
 
@@ -341,3 +342,20 @@ FAIL c007 [edge] category: expected невідомо, got інше
 | `l09` | `--runs N --vote`: більшість категорії, без більшості `needs_review` (розділ 10) |
 | `l09` | `CONTRACT_VERSION = "1.2"` |
 | `l09` | Поле `reasoning` перейменоване на `why` (24.10.2026): документація Anthropic про відмови називає поле `reasoning` у JSON типовою причиною оплачуваної відмови `reasoning_extraction` і дозволяє коротке пояснення (https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback#keep-reasoning-in-thinking-blocks). Версія лишається 1.2 |
+
+## 14. Зміни тегу `l10` (26.10.2026)
+
+Усе нове, нічого з `l00`–`l09` не змінюється. `CONTRACT_VERSION` лишається `1.2`: це додавання.
+
+| Тег | Зміна |
+|---|---|
+| `l10` | `data/kb/*.md`: 7 файлів політик магазину (повернення, доставка, оплата, гарантія, обмін, промокоди, коди помилок); `data/kb/archive/povernennya-2025.md` стара версія («30 днів»), пошук її не читає |
+| `l10` | `support/rag/`: `Chunk(id, source, title, text)`, `split_doc`, `load_chunks`, `keyword_search` (BM25, слова обрізані до 6 літер, без спільного слова результату нема), `vector_search`, `hybrid_search` (RRF, константа 60), `search_kb(question, k=3, mode="hybrid") -> list[Chunk]`; режим, якому потрібні ембединги, кидає `SearchError` з текстом для учня |
+| `l10` | `answer_from_kb(question, k=3, mode="hybrid") -> AnswerResult`: `status ∈ ok \| needs_review \| empty_input \| refusal \| schema_error \| truncated \| error`, `found`, `answer`, `sources` (⊆ `retrieved`), `retrieved`, `checks`. Модель повертає `RagAnswer(found, answer, sources)`; решту додає код. `check_answer` відхиляє джерело поза знайденими, відповідь без джерела, відмову не зі «У джерелах цього немає» |
+| `l10` | `embed(texts, kind="query"\|"passage") -> EmbedResult` у `support.llm`. Маршрут `AIEZ_EMBED` = `mock` (готові вектори з `data/kb_vectors.npz`, зроблені справжньою multilingual-e5-small; текст поза файлом дає `mock_no_vector`), `local` (`uv sync --extra rag-local`), `openai` (`text-embedding-3-small`), `gemini` (`gemini-embedding-2`). Без `AIEZ_EMBED` маршрут іде за `AIEZ_PROVIDER`; в Anthropic ембедингів нема (`no_embeddings`). Живі маршрути не перевірені ключем |
+| `l10` | mock: `purpose="rag"` і сценарії `invented_source`, `no_sources`, `answers_without_basis` (разом 20); `fixtures/mock_rag.jsonl` питання курсу → цитата-доказ |
+| `l10` | Кейси: `kind: retrieval` (`input.question`, `expect.evidence` цитата) `r001`–`r016`; `kind: answer` `a001`–`a017` (`expect.found`, `evidence` цитата має бути в тексті процитованих фрагментів, `must_contain`, `status`). Цитата, не id фрагмента: id змінюються при нарізці |
+| `l10` | `a017` (сценарій `answers_without_basis`) лишається FAIL навмисно: код не бачить, що правдоподібна відповідь з реальним джерелом неправильна. Це помилка відповіді, її ловить тільки eval |
+| `l10` | `run_evals --kind retrieval\|answer`, `--mode keyword\|vector\|hybrid\|all`, `--k 3`, `--chunk-size 800`. Для `retrieval` `--baseline` = пошук за словами без ембедингів. Звіт: `hit@1`, `hit@k`, рядок про ембединги |
+| `l10` | `POST /api/answer?mode=&k=`. Свої питання: `uv run python -m support.evals add-question "питання" --evidence "цитата"` (`--no-answer --kind answer` для питання без відповіді), свої документи: `--kb ПАПКА`. У mock векторів для чужих текстів нема (`mock_no_vector`), тож свої питання проходять через `--mode keyword`, а для вектора й гібрида потрібен маршрут `local`, `openai` або `gemini`. BM25 потребує щонайменше 3 фрагментів у базі |
+| `l10` | Залежності: `numpy`, `rank-bm25`; extra `rag-local` (`sentence-transformers`). `scripts/build_kb_vectors.py` перебудовує `kb_vectors.npz` після зміни `data/kb/` чи питань |
