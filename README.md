@@ -29,7 +29,7 @@ setx PYTHONUTF8 1
 ```powershell
 mkdir C:\dev
 cd C:\dev
-git clone <адреса-репозиторію> ai-engineering-starter
+git clone https://github.com/strang999/ai-engineering-starter ai-engineering-starter
 cd ai-engineering-starter
 git switch -c lesson-00 l00
 ```
